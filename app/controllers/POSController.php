@@ -5,9 +5,7 @@
  */
 
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
-require_once ROOT_PATH . '/app/models/Product.php';
-require_once ROOT_PATH . '/app/models/Customer.php';
-require_once ROOT_PATH . '/app/models/Order.php';
+require_once ROOT_PATH . '/app/models/ModelFactory.php';
 require_once ROOT_PATH . '/app/models/Coupon.php';
 require_once ROOT_PATH . '/app/helpers/WooCommerceAPI.php';
 
@@ -20,7 +18,7 @@ class POSController extends BaseController {
         $this->requireAuth();
         $this->requirePermission('create_orders');
         
-        $productModel = new Product();
+        $productModel = ModelFactory::getProduct();
         $products = $productModel->getAllProducts(20, 0);
         
         // Get cart from session
@@ -54,7 +52,7 @@ class POSController extends BaseController {
             $this->json(['success' => false, 'message' => 'Invalid product or quantity'], 400);
         }
         
-        $productModel = new Product();
+        $productModel = ModelFactory::getProduct();
         $product = $productModel->getProduct($productId);
         
         if (!$product) {
@@ -223,7 +221,7 @@ class POSController extends BaseController {
         ];
         
         // SERVER-SIDE cart validation - Never trust client prices or discounts
-        $productModel = new Product();
+        $productModel = ModelFactory::getProduct();
         $subtotal = 0;
         $totalItemDiscounts = 0;
         $cartItems = []; // Store item details for tax calculation after all discounts
@@ -741,7 +739,7 @@ class POSController extends BaseController {
     public function receipt($orderId) {
         $this->requireAuth();
         
-        $orderModel = new Order();
+        $orderModel = ModelFactory::getOrder();
         $order = $orderModel->getOrder($orderId);
         
         if (!$order) {
@@ -788,7 +786,7 @@ class POSController extends BaseController {
             $this->json(['success' => false, 'message' => 'Invalid email address'], 400);
         }
         
-        $orderModel = new Order();
+        $orderModel = ModelFactory::getOrder();
         $order = $orderModel->getOrder($orderId);
         
         if (!$order) {
@@ -855,7 +853,7 @@ class POSController extends BaseController {
         }
         
         try {
-            $orderModel = new Order();
+            $orderModel = ModelFactory::getOrder();
             
             $customerId = (int) ($input['customer_id'] ?? 0);
             $paymentMethod = sanitize($input['payment_method']);

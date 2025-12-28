@@ -5,8 +5,7 @@
  */
 
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
-require_once ROOT_PATH . '/app/models/Product.php';
-require_once ROOT_PATH . '/app/models/Customer.php';
+require_once ROOT_PATH . '/app/models/ModelFactory.php';
 require_once ROOT_PATH . '/app/models/Coupon.php';
 
 class APIController extends BaseController {
@@ -22,7 +21,7 @@ class APIController extends BaseController {
         $limit = (int) getGet('limit', 20);
         $offset = ($page - 1) * $limit;
         
-        $productModel = new Product();
+        $productModel = ModelFactory::getProduct();
         
         if (!empty($search)) {
             // First try exact barcode match (_ywbc_barcode_display_value)
@@ -85,7 +84,7 @@ class APIController extends BaseController {
             $this->json(['success' => false, 'message' => 'Invalid product'], 400);
         }
         
-        $productModel = new Product();
+        $productModel = ModelFactory::getProduct();
         $product = $productModel->getProduct($productId);
         
         if (!$product) {
@@ -544,7 +543,7 @@ class APIController extends BaseController {
         $search = sanitize(getGet('search', ''));
         $limit = (int) getGet('limit', 30);
         
-        $customerModel = new Customer();
+        $customerModel = ModelFactory::getCustomer();
         
         // Use optimized searchCustomers method for POS
         $customers = $customerModel->searchCustomers($search, $limit);
@@ -593,7 +592,7 @@ class APIController extends BaseController {
         $status = sanitize(getGet('status', ''));
         $offset = ($page - 1) * $limit;
         
-        $customerModel = new Customer();
+        $customerModel = ModelFactory::getCustomer();
         
         $customers = $customerModel->getAllCustomers($limit, $offset, $search, $status);
         
@@ -646,7 +645,7 @@ class APIController extends BaseController {
     public function customerStats() {
         $this->requireAuth();
         
-        $customerModel = new Customer();
+        $customerModel = ModelFactory::getCustomer();
         $stats = $customerModel->getStats();
         
         $this->json([
@@ -661,7 +660,7 @@ class APIController extends BaseController {
     public function getCustomer($customerId) {
         $this->requireAuth();
         
-        $customerModel = new Customer();
+        $customerModel = ModelFactory::getCustomer();
         $customer = $customerModel->getCustomer($customerId);
         
         if (!$customer) {
@@ -680,7 +679,7 @@ class APIController extends BaseController {
     public function getCustomerDetails($customerId) {
         $this->requireAuth();
         
-        $customerModel = new Customer();
+        $customerModel = ModelFactory::getCustomer();
         $customer = $customerModel->getCustomer($customerId);
         
         if (!$customer) {
@@ -719,7 +718,7 @@ class APIController extends BaseController {
             $this->json(['success' => false, 'message' => 'Name and mobile are required'], 400);
         }
         
-        $customerModel = new Customer();
+        $customerModel = ModelFactory::getCustomer();
         
         $existingCustomer = $customerModel->getByMobile($input['mobile']);
         if ($existingCustomer) {
@@ -760,7 +759,7 @@ class APIController extends BaseController {
             $this->json(['success' => false, 'message' => 'First name, last name, and mobile are required'], 400);
         }
         
-        $customerModel = new Customer();
+        $customerModel = ModelFactory::getCustomer();
         
         $customer = $customerModel->getCustomer($customerId);
         if (!$customer) {
@@ -791,7 +790,7 @@ class APIController extends BaseController {
     public function deleteCustomer($customerId) {
         $this->requireAuth();
         
-        $customerModel = new Customer();
+        $customerModel = ModelFactory::getCustomer();
         
         $customer = $customerModel->getCustomer($customerId);
         if (!$customer) {

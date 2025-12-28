@@ -5,7 +5,7 @@
  */
 
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
-require_once ROOT_PATH . '/app/models/Product.php';
+require_once ROOT_PATH . '/app/models/ModelFactory.php';
 
 class ProductController extends BaseController {
     
@@ -19,7 +19,7 @@ class ProductController extends BaseController {
         $limit = 20;
         $offset = ($page - 1) * $limit;
         
-        $productModel = new Product();
+        $productModel = ModelFactory::getProduct();
         $products = $productModel->getAllProducts($limit, $offset);
         $totalProducts = $productModel->getTotalProducts();
         $totalPages = ceil($totalProducts / $limit);
@@ -44,7 +44,7 @@ class ProductController extends BaseController {
             $this->json(['success' => false, 'products' => []], 400);
         }
         
-        $productModel = new Product();
+        $productModel = ModelFactory::getProduct();
         $products = $productModel->searchProducts($query, 20);
         
         $this->json([
@@ -59,7 +59,7 @@ class ProductController extends BaseController {
     public function show($id) {
         $this->requireAuth();
         
-        $productModel = new Product();
+        $productModel = ModelFactory::getProduct();
         $product = $productModel->getProduct($id);
         
         if (!$product) {

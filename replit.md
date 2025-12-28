@@ -4,7 +4,7 @@
 B-Plus POS is a comprehensive Point-of-Sale system built in PHP that integrates with WooCommerce via remote MySQL database connection and REST API.
 
 **Created:** October 28, 2025
-**Stack:** PHP 8.4, MySQL (Remote), WooCommerce REST API
+**Stack:** PHP 8.4, MySQL (Remote), WooCommerce REST API or Standalone Database
 **Architecture:** MVC Pattern
 
 ## Purpose
@@ -122,6 +122,43 @@ Complete guide for manual setup (if you prefer):
 ---
 
 ## Recent Changes
+
+### December 28, 2025: **Standalone Database Support Added** ✅
+
+**Database Type Switching Implemented:**
+- System now supports both WordPress/WooCommerce AND standalone PHP database modes
+- Configuration-based switching via `DATABASE_TYPE` environment variable ('wordpress' or 'standalone')
+- ModelFactory pattern implemented for automatic model selection based on database type
+
+**Standalone Database Schema (28 tables):**
+- Core: products, categories, product_categories, product_meta, product_images, product_variations
+- Users: users, user_meta, roles, permissions, role_permissions
+- Customers: customers, store_credits, store_credit_transactions, loyalty_points, loyalty_transactions
+- Orders: orders, order_items, order_meta, returns, return_items
+- Tax: tax_rates, gst_tax_rules
+- Store: stores, registers
+- Logs: whatsapp_logs, sessions
+- Coupons: coupons
+
+**Migration from WooCommerce:**
+- Migration script: `database/migrate_woocommerce.php`
+- Batch processing with connection management for large datasets
+- Successfully migrates: products (420+), categories (154), users, customers, orders
+
+**Controller Updates:**
+- AuthController, POSController, DashboardController, ProductController, CustomerController, AdminController, APIController all updated to use ModelFactory
+- Seamless switching between WordPress models and Standalone models
+
+**Default Users (standalone mode):**
+- admin/admin123 (admin role)
+- cashier/cashier123 (cashier role)
+
+**How to Switch:**
+1. Set `DATABASE_TYPE=wordpress` for WooCommerce integration
+2. Set `DATABASE_TYPE=standalone` for standalone PHP database
+3. Configure appropriate credentials for chosen mode
+
+---
 
 ### November 28, 2025: **Return Details Fixed + Deployment Guide Added** ✅
 

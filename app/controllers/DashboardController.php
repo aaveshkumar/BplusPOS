@@ -5,8 +5,7 @@
  */
 
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
-require_once ROOT_PATH . '/app/models/Order.php';
-require_once ROOT_PATH . '/app/models/Product.php';
+require_once ROOT_PATH . '/app/models/ModelFactory.php';
 
 class DashboardController extends BaseController {
     
@@ -16,8 +15,8 @@ class DashboardController extends BaseController {
     public function index() {
         $this->requireAuth();
         
-        $orderModel = new Order();
-        $productModel = new Product();
+        $orderModel = ModelFactory::getOrder();
+        $productModel = ModelFactory::getProduct();
         
         // Get today's sales
         $todaySales = $orderModel->getTodaysSales();
@@ -46,7 +45,7 @@ class DashboardController extends BaseController {
         $startDate = getGet('start_date', date('Y-m-d', strtotime('-30 days')));
         $endDate = getGet('end_date', date('Y-m-d'));
         
-        $orderModel = new Order();
+        $orderModel = ModelFactory::getOrder();
         $salesData = $orderModel->getSalesByDateRange($startDate, $endDate);
         
         $this->view('dashboard/sales', [

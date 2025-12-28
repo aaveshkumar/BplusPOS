@@ -76,4 +76,37 @@ class PasswordHash {
 
         return $output;
     }
+
+    function get_random_bytes($count) {
+        $output = '';
+        if (@is_readable('/dev/urandom') &&
+            ($fh = @fopen('/dev/urandom', 'rb'))) {
+            $output = fread($fh, $count);
+            fclose($fh);
+        }
+        if (strlen($output) < $count) {
+            $output = '';
+            for ($i = 0; $i < $count; $i += 16) {
+                $this->random_state = md5(microtime() . $this->random_state);
+                $output .= pack('H*', md5($this->random_state));
+            }
+            $output = substr($output, 0, $count);
+        }
+        return $output;
+    }
+
+    function gensalt_private($input) {
+        $output = '$P$';
+        $output .= $this->itoa64[min($this->iteration_count_log2 + 5, 30)];
+        $output .= $this->encode64($input, 6);
+        return $output;
+    }
+
+    function HashPassword($password) {
+        $random = $this->get_random_bytes(6);
+        $hash = $this->crypt_private($password, $this->gensalt_private($random));
+        if (strlen($hash) == 34)
+            return $hash;
+        return '*';
+    }
 }

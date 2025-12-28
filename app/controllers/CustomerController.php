@@ -5,7 +5,7 @@
  */
 
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
-require_once ROOT_PATH . '/app/models/Customer.php';
+require_once ROOT_PATH . '/app/models/ModelFactory.php';
 
 class CustomerController extends BaseController {
     
@@ -15,7 +15,7 @@ class CustomerController extends BaseController {
     public function index() {
         $this->requireAuth();
         
-        $customerModel = new Customer();
+        $customerModel = ModelFactory::getCustomer();
         $customers = $customerModel->getAllCustomers(50, 0);
         
         $this->view('customers/index', [
@@ -36,7 +36,7 @@ class CustomerController extends BaseController {
             $this->json(['success' => false, 'customers' => []], 400);
         }
         
-        $customerModel = new Customer();
+        $customerModel = ModelFactory::getCustomer();
         $customers = $customerModel->searchCustomers($query, 20);
         
         $this->json([
@@ -51,15 +51,18 @@ class CustomerController extends BaseController {
     public function show($id) {
         $this->requireAuth();
         
-        $customerModel = new Customer();
+        $customerModel = ModelFactory::getCustomer();
         $customer = $customerModel->getCustomer($id);
         
         if (!$customer) {
             $this->json(['success' => false, 'message' => 'Customer not found'], 404);
         }
         
-        // Get customer orders
-        $orders = $customerModel->getCustomerOrders($id, 10);
+        // Get customer orders if method exists
+        $orders = [];
+        if (method_exists($customerModel, 'getCustomerOrders')) {
+            $orders = $customerModel->getCustomerOrders($id, 10);
+        }
         
         $this->json([
             'success' => true,

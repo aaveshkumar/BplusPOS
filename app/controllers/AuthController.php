@@ -5,7 +5,7 @@
  */
 
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
-require_once ROOT_PATH . '/app/models/User.php';
+require_once ROOT_PATH . '/app/models/ModelFactory.php';
 
 class AuthController extends BaseController {
     
@@ -42,7 +42,7 @@ class AuthController extends BaseController {
             $this->redirect('/login');
         }
         
-        $userModel = new User();
+        $userModel = ModelFactory::getUser();
         $user = $userModel->getUserByUsername($username);
         
         if (!$user) {
@@ -57,7 +57,7 @@ class AuthController extends BaseController {
         }
         
         // Check if user has POS role
-        if (empty($user['role']) || !in_array($user['role'], ['admin', 'cashier', 'stock_manager'])) {
+        if (empty($user['role']) || !in_array($user['role'], ['admin', 'manager', 'cashier', 'stock_manager'])) {
             Session::setFlash('error', 'You do not have permission to access the POS system', 'danger');
             $this->redirect('/login');
         }

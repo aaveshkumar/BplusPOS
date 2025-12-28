@@ -5,10 +5,7 @@
  */
 
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
-require_once ROOT_PATH . '/app/models/User.php';
-require_once ROOT_PATH . '/app/models/Order.php';
-require_once ROOT_PATH . '/app/models/Product.php';
-require_once ROOT_PATH . '/app/models/Customer.php';
+require_once ROOT_PATH . '/app/models/ModelFactory.php';
 
 class AdminController extends BaseController {
     
@@ -34,6 +31,8 @@ class AdminController extends BaseController {
      */
     private function getDashboardStats() {
         $db = Database::getInstance();
+        $config = require ROOT_PATH . '/config/config.php';
+        $isStandalone = ($config['database_type'] ?? 'wordpress') === 'standalone';
         $prefix = $db->getPrefix();
         
         $stats = [
@@ -51,12 +50,18 @@ class AdminController extends BaseController {
         ];
         
         try {
+            // Use appropriate tables based on database type
+            $ordersTable = $isStandalone ? 'orders' : 'pos_orders';
+            $orderItemsTable = $isStandalone ? 'order_items' : 'pos_order_items';
+            $sessionsTable = $isStandalone ? 'sessions' : 'pos_sessions';
+            $statusField = $isStandalone ? 'status' : 'order_status';
+            
             // Today's sales
             $stmt = $db->query("
                 SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total
-                FROM pos_orders
+                FROM {$ordersTable}
                 WHERE DATE(created_at) = CURDATE()
-                AND order_status = 'completed'
+                AND {$statusField} = 'completed'
             ");
             $result = $stmt->fetch();
             $stats['today_orders'] = $result['count'] ?? 0;
@@ -65,28 +70,21 @@ class AdminController extends BaseController {
             // This month's sales
             $stmt = $db->query("
                 SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total
-                FROM pos_orders
+                FROM {$ordersTable}
                 WHERE MONTH(created_at) = MONTH(CURDATE())
                 AND YEAR(created_at) = YEAR(CURDATE())
-                AND order_status = 'completed'
+                AND {$statusField} = 'completed'
             ");
             $result = $stmt->fetch();
             $stats['month_orders'] = $result['count'] ?? 0;
             $stats['month_sales'] = $result['total'] ?? 0;
             
-            // Total customers (from WooCommerce users)
-            $stmt = $db->query("
-                SELECT COUNT(*) as count
-                FROM {$prefix}users u
-                INNER JOIN {$prefix}usermeta um ON u.ID = um.user_id
-                WHERE um.meta_key = '{$prefix}capabilities'
-                AND um.meta_value LIKE '%customer%'
-            ");
-            $result = $stmt->fetch();
-            $stats['total_customers'] = $result['count'] ?? 0;
+            // Total customers
+            $customerModel = ModelFactory::getCustomer();
+            $stats['total_customers'] = $customerModel->countCustomers();
             
             // Total products
-            $productModel = new Product();
+            $productModel = ModelFactory::getProduct();
             $stats['total_products'] = $productModel->getTotalProducts();
             
             // Low stock products
@@ -96,19 +94,21 @@ class AdminController extends BaseController {
             // Active cashier sessions
             $stmt = $db->query("
                 SELECT COUNT(*) as count
-                FROM pos_sessions
+                FROM {$sessionsTable}
                 WHERE status = 'open'
             ");
             $result = $stmt->fetch();
             $stats['active_sessions'] = $result['count'] ?? 0;
             
             // Recent orders (last 10)
+            $usersTable = $isStandalone ? 'users' : "{$prefix}users";
+            $userIdField = $isStandalone ? 'u.id' : 'u.ID';
             $stmt = $db->query("
                 SELECT 
                     o.*,
                     u.display_name as cashier_name
-                FROM pos_orders o
-                LEFT JOIN {$prefix}users u ON o.user_id = u.ID
+                FROM {$ordersTable} o
+                LEFT JOIN {$usersTable} u ON o.user_id = {$userIdField}
                 ORDER BY o.created_at DESC
                 LIMIT 10
             ");
@@ -120,11 +120,11 @@ class AdminController extends BaseController {
                     oi.product_name,
                     SUM(oi.quantity) as total_sold,
                     SUM(oi.line_total) as revenue
-                FROM pos_order_items oi
-                INNER JOIN pos_orders o ON oi.order_id = o.id
+                FROM {$orderItemsTable} oi
+                INNER JOIN {$ordersTable} o ON oi.order_id = o.id
                 WHERE MONTH(o.created_at) = MONTH(CURDATE())
                 AND YEAR(o.created_at) = YEAR(CURDATE())
-                AND o.order_status = 'completed'
+                AND o.{$statusField} = 'completed'
                 GROUP BY oi.product_id, oi.product_name
                 ORDER BY total_sold DESC
                 LIMIT 5
@@ -137,9 +137,9 @@ class AdminController extends BaseController {
                     DATE(created_at) as date,
                     COUNT(*) as orders,
                     COALESCE(SUM(total), 0) as sales
-                FROM pos_orders
+                FROM {$ordersTable}
                 WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-                AND order_status = 'completed'
+                AND {$statusField} = 'completed'
                 GROUP BY DATE(created_at)
                 ORDER BY date ASC
             ");
@@ -159,7 +159,7 @@ class AdminController extends BaseController {
         $this->requireAuth();
         $this->requirePermission('manage_users');
         
-        $userModel = new User();
+        $userModel = ModelFactory::getUser();
         $users = $userModel->getAllUsers();
         
         $this->view('admin/users', [
@@ -194,7 +194,7 @@ class AdminController extends BaseController {
             redirect('/admin/users');
         }
         
-        $userModel = new User();
+        $userModel = ModelFactory::getUser();
         
         try {
             if ($userId > 0) {
@@ -255,7 +255,7 @@ class AdminController extends BaseController {
             $this->json(['success' => false, 'message' => 'Cannot delete your own account'], 400);
         }
         
-        $userModel = new User();
+        $userModel = ModelFactory::getUser();
         
         try {
             $userModel->deleteUser($userId);
@@ -378,7 +378,7 @@ class AdminController extends BaseController {
         $this->requireAuth();
         $this->requirePermission('manage_products');
         
-        $productModel = new Product();
+        $productModel = ModelFactory::getProduct();
         $products = $productModel->getAllProducts(50, 0);
         
         $this->view('admin/products', [
@@ -394,7 +394,7 @@ class AdminController extends BaseController {
         $this->requireAuth();
         $this->requirePermission('manage_customers');
         
-        $customerModel = new Customer();
+        $customerModel = ModelFactory::getCustomer();
         $customers = $customerModel->getAllCustomers(50, 0);
         
         $this->view('admin/customers', [
