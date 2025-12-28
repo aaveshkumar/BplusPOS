@@ -140,10 +140,15 @@ Complete guide for manual setup (if you prefer):
 - Logs: whatsapp_logs, sessions
 - Coupons: coupons
 
-**Migration from WooCommerce:**
-- Migration script: `database/migrate_woocommerce.php`
+**Migration from WooCommerce (Completed December 28, 2025):**
+- Migration scripts: `database/migrate_woocommerce.php`, `database/migrate_batch.php`
 - Batch processing with connection management for large datasets
-- Successfully migrates: products (420+), categories (154), users, customers, orders
+- Successfully migrated:
+  - Products: 2,444 records (including variations)
+  - Categories: 154 records
+  - Customers: 3,044 records (all WordPress users)
+  - Orders: 35 records with 41 order items
+  - Users: 2 system users (admin/cashier)
 
 **Controller Updates:**
 - AuthController, POSController, DashboardController, ProductController, CustomerController, AdminController, APIController all updated to use ModelFactory
