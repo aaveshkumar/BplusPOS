@@ -32,3 +32,12 @@ externalPort = 80
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+STANDALONE_DB_HOST = "193.203.184.150"
+STANDALONE_DB_PORT = "3306"
+STANDALONE_DB_NAME = "u647904474_bplusshop"
+STANDALONE_DB_USER = "u647904474_bplusshop"
+STANDALONE_DB_PASSWORD = "Bplusshop@1234#"
