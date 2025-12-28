@@ -1,0 +1,157 @@
+1. WooCommerce Integration
+Real-time synchronization of products, stock, tax rates, variations, prices, and sale prices with WooCommerce.
+
+Remote database connection enabling multi-location data access and management.
+
+2. Customer Management
+Search, add, and manage customers linked to WordPress users.
+
+Automatic customer creation as WordPress users.
+
+Support for customer groups, loyalty statuses, and detailed order history tracking.
+
+3. Product & Inventory Management
+Manage products, variations, SKUs, and barcodes with real-time stock updates.
+
+Full support for barcode and QR code scanning, generation, and printing.
+
+AI-powered inventory forecasting and automatic low stock alerts.
+
+Bulk barcode printing with customizable layouts.
+
+4. Order & Transaction Management
+Create, modify, refund, and void orders efficiently.
+
+Robust product return and exchange workflows with reason capture and automated stock updates.
+
+Complete order history management and receipt reprinting/emailing.
+
+5. Sales & Coupon System
+Automated coupon generation based on:
+
+Minimum purchase amounts (single or multiple orders).
+
+Product or category-specific offers.
+
+Campaigns, birthdays, or festive events.
+
+Manual coupon creation and usage tracking.
+
+Loyalty program integration for coupon earning and redemption.
+
+6. Pricing, Tax & Discount Management
+On-the-fly price overrides and discount applications on cashier screen.
+
+Ability to overwrite tax rates within role-restricted access.
+
+Role-based editing permissions:
+
+Admins can fully modify prices, taxes, and discounts.
+
+Stock managers and cashiers have limited rights.
+
+Audit logs record all such changes for security and accountability.
+
+7. Multi-Store & Multi-User Support
+Support for unlimited stores and outlets.
+
+Multiple cashier accounts with shift tracking per store.
+
+User roles with restrictive access:
+
+Admins, Stock Managers, Cashiers, each with tailored permissions.
+
+Centralized staff and store management via admin dashboard.
+
+8. Payment Methods & Checkout Flexibility
+Accepts multiple payment methods: cash, card, UPI, wallets, and custom types.
+
+Supports split and partial payments.
+
+Payment gateway integrations.
+
+Self-checkout and kiosk mode compatibility.
+
+9. Barcode Management & Printing
+Auto-generation of barcodes in popular formats (EAN, UPC, QR).
+
+Bulk barcode printing with customizable label sizes, fonts, and branding.
+
+Print preview and printer compatibility (thermal, label, receipt).
+
+Export barcode lists for external printing.
+
+10. Receipt & Branding Customization
+Receipt templates customizable with logos, headers, footers, and store details.
+
+Store-specific branding and configurations.
+
+User interface theming with dark and light modes.
+
+11. Reporting & Analytics
+Real-time dashboards for sales, inventory, cashier activities.
+
+Customizable reports by date, cashier, product, store, payment type.
+
+Profit margin, tax, and commission calculation reports.
+
+Export to Excel for detailed offline analysis.
+
+12. E-Invoicing & Tax Compliance
+Automatic generation of GST and tax compliant e-invoices.
+
+Electronic invoice delivery via email and WhatsApp.
+
+Integration with government tax portals for filing and reporting.
+
+Support for global tax regimes for international deployments.
+
+13. WhatsApp & Email Integration
+Automated sending of invoices, receipts, and confirmations via WhatsApp and email.
+
+Marketing campaigns and promotional messaging through WhatsApp broadcast lists and email newsletters.
+
+Customer support chat through WhatsApp Business API integrated within POS.
+
+14. Advanced Loyalty Programs
+Points accumulation and redemption tied to sales.
+
+Tiered memberships (Silver, Gold, Platinum) with personalized rewards.
+
+Automated birthday and anniversary rewards and notifications.
+
+15. Offline Mode & Synchronization
+Order capture and inventory updates in offline mode.
+
+Auto-synchronization once internet connectivity is restored.
+
+16. Security & Audit
+Role-based access control with configurable permissions.
+
+Complete audit logs on user activity including price changes, returns, logins.
+
+Secure database access using encrypted connections.
+
+17. Omnichannel & Integrations
+Unified inventory and customer management between online WooCommerce store and offline POS.
+
+Integrations with accounting software (Tally, QuickBooks), ERP, and shipping services.
+
+API for third-party and custom integrations.
+
+Multilingual support.
+
+18. Mobile & Tablet Support
+Dedicated apps or responsive design for tablets and smartphones.
+
+Mobile-friendly interface for portability and in-store mobility.
+
+19. Custom Workflow Automation
+Rule-based triggers for inventory reorder, customer follow-ups, feedback requests.
+
+Automated notifications for key events.
+
+20. Analytics & Business Intelligence
+AI-driven sales prediction and customer segmentation.
+
+Customizable KPI dashboards for strategic decision-making.

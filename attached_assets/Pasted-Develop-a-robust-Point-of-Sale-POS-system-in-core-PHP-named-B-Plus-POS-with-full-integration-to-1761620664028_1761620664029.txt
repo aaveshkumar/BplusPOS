@@ -1,0 +1,124 @@
+Develop a robust Point-of-Sale (POS) system in core PHP named "B-Plus POS," with full integration to a WooCommerce database via remote connection.
+
+System Overview:
+The system must be built in pure PHP, following a modular architectural pattern (preferably MVC or similar) for maintainability.
+
+The system will interface directly with a WooCommerce MySQL database using provided remote database connection details.
+
+Support multiple stores and cashiers, with role-based access control.
+
+Provide user-friendly interfaces for POS transactions, inventory, customer, and order management.
+
+Incorporate advanced features like automated coupon generation, barcode handling, printable receipts, e-invoicing, and WhatsApp/email notifications.
+
+Core Features:
+WooCommerce Integration
+
+Sync real-time product info, stock levels, variations, prices, and sales via direct database connection.
+
+Support for multi-store environments with separate inventory and sales management per store.
+
+Handle product variations and barcode association.
+
+Customer & User Management
+
+Sync WooCommerce users as customers, allowing adding/searching/selecting customers within POS.
+
+Role-based user permissions: Admin, Stock Manager, Cashier.
+
+Manage customer details, purchase history, and loyalty status.
+
+Product & Inventory Management
+
+CRUD operations for products, including variations, SKUs, and barcode association.
+
+Support barcode generation, scanning, and printing.
+
+Inventory updates in real-time; alerts for low stock levels.
+
+Support bulk barcode labels printing with customization options.
+
+Order & Transaction Handling
+
+Create, modify, cancel, and refund orders.
+
+Allow product returns/exchanges, with reasons and automatic stock adjustment.
+
+Order history tracking and receipt management.
+
+Split payments, multiple payment methods, and partial payments.
+
+Pricing & Discount Management
+
+Dynamic price adjustments and discounts at checkout, with role-based restrictions.
+
+Overwrite taxes and apply discounts, with logs for all modifications.
+
+Promotion and coupon system with:
+
+Automatic coupon generation based on rules (minimum purchase, orders, campaigns).
+
+Manual coupon management and tracking.
+
+Receipt & Print Customization
+
+Custom receipt templates with store branding.
+
+Options for thermal or standard printers.
+
+Batch barcode printing and label design.
+
+Reporting & Analytics
+
+Dashboard for sales, inventory, cashier, and product analytics.
+
+Export reports to Excel.
+
+Advanced sales, profit, tax, and inventory reports.
+
+Legal & Compliance Modules
+
+Automatic e-invoice generation compliant with GST (Indian jurisdiction), including email/WhatsApp delivery.
+
+Integration with tax portals for filing.
+
+Support for global tax regimes if needed.
+
+Communication & Marketing
+
+Automated WhatsApp and email notifications for invoices, receipts, offers, and campaigns.
+
+Campaign management features.
+
+Additional Features
+
+Role-based access for editing prices, taxes, and discounts.
+
+Offline mode with data sync.
+
+Mobile/tablet optimized interface.
+
+Security measures: prepared statements, input validation, session security.
+
+REST API for third-party integration.
+
+Technical Guidelines:
+Use only core PHP and standard PHP functions; avoid dependencies on external frameworks.
+
+Employ PDO for database interactions, with prepared statements.
+
+Follow best security practices for data validation, input sanitization, and session management.
+
+Structure code using modular files; separate concerns clearly.
+
+Comment code extensively for clarity.
+
+Input Required:
+Provide the remote WooCommerce database connection details as variables.
+
+Outline any specific UI preferences or branding if needed.
+
+Indicate whether to include a detailed API document or user manual.
+
+Final note:
+Create the codebase incrementally, validating each component thoroughly before proceeding to the next. Prioritize security, scalability, and user experience.

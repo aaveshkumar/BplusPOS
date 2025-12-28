@@ -1,0 +1,36 @@
+# PHP gitignore
+
+# Composer
+/vendor/
+composer.phar
+composer.lock
+
+# Environment and config files
+.env
+config/config.php
+
+# Storage directories
+storage/logs/*.log
+storage/cache/*
+storage/sessions/*
+!storage/logs/.gitkeep
+!storage/cache/.gitkeep
+!storage/sessions/.gitkeep
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build files
+*.cache
+
+# User uploaded files
+public/uploads/*
+!public/uploads/.gitkeep
