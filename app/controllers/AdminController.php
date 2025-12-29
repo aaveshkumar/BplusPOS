@@ -1358,25 +1358,41 @@ class AdminController extends BaseController {
         $this->requirePermission('manage_products');
         
         $db = Database::getInstance();
+        $isStandalone = getenv('DATABASE_TYPE') === 'standalone';
         $prefix = $db->getPrefix();
         
         // Get products for barcode generation
-        $stmt = $db->query("
-            SELECT 
-                p.ID as product_id,
-                p.post_title as product_name,
-                pm1.meta_value as sku,
-                pm2.meta_value as regular_price,
-                pm3.meta_value as stock_quantity
-            FROM {$prefix}posts p
-            LEFT JOIN {$prefix}postmeta pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_sku'
-            LEFT JOIN {$prefix}postmeta pm2 ON p.ID = pm2.post_id AND pm2.meta_key = '_regular_price'
-            LEFT JOIN {$prefix}postmeta pm3 ON p.ID = pm3.post_id AND pm3.meta_key = '_stock'
-            WHERE p.post_type = 'product'
-            AND p.post_status = 'publish'
-            ORDER BY p.post_title ASC
-            LIMIT 100
-        ");
+        if ($isStandalone) {
+            $stmt = $db->query("
+                SELECT 
+                    p.id as product_id,
+                    p.name as product_name,
+                    p.sku,
+                    p.regular_price,
+                    p.stock_quantity
+                FROM products p
+                WHERE p.status = 'publish'
+                ORDER BY p.name ASC
+                LIMIT 100
+            ");
+        } else {
+            $stmt = $db->query("
+                SELECT 
+                    p.ID as product_id,
+                    p.post_title as product_name,
+                    pm1.meta_value as sku,
+                    pm2.meta_value as regular_price,
+                    pm3.meta_value as stock_quantity
+                FROM {$prefix}posts p
+                LEFT JOIN {$prefix}postmeta pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_sku'
+                LEFT JOIN {$prefix}postmeta pm2 ON p.ID = pm2.post_id AND pm2.meta_key = '_regular_price'
+                LEFT JOIN {$prefix}postmeta pm3 ON p.ID = pm3.post_id AND pm3.meta_key = '_stock'
+                WHERE p.post_type = 'product'
+                AND p.post_status = 'publish'
+                ORDER BY p.post_title ASC
+                LIMIT 100
+            ");
+        }
         $products = $stmt->fetchAll();
         
         $this->view('admin/barcodes', [
@@ -1393,53 +1409,88 @@ class AdminController extends BaseController {
         $this->requirePermission('manage_products');
         
         $db = Database::getInstance();
+        $isStandalone = getenv('DATABASE_TYPE') === 'standalone';
         $prefix = $db->getPrefix();
         
         // Get low stock products
-        $stmt = $db->query("
-            SELECT 
-                p.ID as product_id,
-                p.post_title as product_name,
-                pm1.meta_value as sku,
-                pm2.meta_value as stock_quantity,
-                pm3.meta_value as low_stock_amount,
-                pm4.meta_value as stock_status,
-                pm5.meta_value as regular_price
-            FROM {$prefix}posts p
-            LEFT JOIN {$prefix}postmeta pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_sku'
-            LEFT JOIN {$prefix}postmeta pm2 ON p.ID = pm2.post_id AND pm2.meta_key = '_stock'
-            LEFT JOIN {$prefix}postmeta pm3 ON p.ID = pm3.post_id AND pm3.meta_key = '_low_stock_amount'
-            LEFT JOIN {$prefix}postmeta pm4 ON p.ID = pm4.post_id AND pm4.meta_key = '_stock_status'
-            LEFT JOIN {$prefix}postmeta pm5 ON p.ID = pm5.post_id AND pm5.meta_key = '_regular_price'
-            WHERE p.post_type = 'product'
-            AND p.post_status = 'publish'
-            AND pm4.meta_value != 'outofstock'
-            HAVING (CAST(stock_quantity AS DECIMAL) <= CAST(low_stock_amount AS DECIMAL) 
-                    OR stock_quantity IS NULL 
-                    OR stock_quantity = '' 
-                    OR CAST(stock_quantity AS DECIMAL) <= 5)
-            ORDER BY CAST(stock_quantity AS DECIMAL) ASC
-            LIMIT 100
-        ");
+        if ($isStandalone) {
+            $stmt = $db->query("
+                SELECT 
+                    id as product_id,
+                    name as product_name,
+                    sku,
+                    stock_quantity,
+                    low_stock_amount,
+                    stock_status,
+                    regular_price
+                FROM products
+                WHERE status = 'publish'
+                AND stock_status != 'outofstock'
+                AND (stock_quantity <= low_stock_amount OR stock_quantity <= 5)
+                ORDER BY stock_quantity ASC
+                LIMIT 100
+            ");
+        } else {
+            $stmt = $db->query("
+                SELECT 
+                    p.ID as product_id,
+                    p.post_title as product_name,
+                    pm1.meta_value as sku,
+                    pm2.meta_value as stock_quantity,
+                    pm3.meta_value as low_stock_amount,
+                    pm4.meta_value as stock_status,
+                    pm5.meta_value as regular_price
+                FROM {$prefix}posts p
+                LEFT JOIN {$prefix}postmeta pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_sku'
+                LEFT JOIN {$prefix}postmeta pm2 ON p.ID = pm2.post_id AND pm2.meta_key = '_stock'
+                LEFT JOIN {$prefix}postmeta pm3 ON p.ID = pm3.post_id AND pm3.meta_key = '_low_stock_amount'
+                LEFT JOIN {$prefix}postmeta pm4 ON p.ID = pm4.post_id AND pm4.meta_key = '_stock_status'
+                LEFT JOIN {$prefix}postmeta pm5 ON p.ID = pm5.post_id AND pm5.meta_key = '_regular_price'
+                WHERE p.post_type = 'product'
+                AND p.post_status = 'publish'
+                AND pm4.meta_value != 'outofstock'
+                HAVING (CAST(stock_quantity AS DECIMAL) <= CAST(low_stock_amount AS DECIMAL) 
+                        OR stock_quantity IS NULL 
+                        OR stock_quantity = '' 
+                        OR CAST(stock_quantity AS DECIMAL) <= 5)
+                ORDER BY CAST(stock_quantity AS DECIMAL) ASC
+                LIMIT 100
+            ");
+        }
         $lowStockProducts = $stmt->fetchAll();
         
         // Get out of stock products
-        $stmt = $db->query("
-            SELECT 
-                p.ID as product_id,
-                p.post_title as product_name,
-                pm1.meta_value as sku,
-                pm2.meta_value as regular_price
-            FROM {$prefix}posts p
-            LEFT JOIN {$prefix}postmeta pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_sku'
-            LEFT JOIN {$prefix}postmeta pm2 ON p.ID = pm2.post_id AND pm2.meta_key = '_regular_price'
-            INNER JOIN {$prefix}postmeta pm3 ON p.ID = pm3.post_id AND pm3.meta_key = '_stock_status'
-            WHERE p.post_type = 'product'
-            AND p.post_status = 'publish'
-            AND pm3.meta_value = 'outofstock'
-            ORDER BY p.post_title ASC
-            LIMIT 100
-        ");
+        if ($isStandalone) {
+            $stmt = $db->query("
+                SELECT 
+                    id as product_id,
+                    name as product_name,
+                    sku,
+                    regular_price
+                FROM products
+                WHERE status = 'publish'
+                AND stock_status = 'outofstock'
+                ORDER BY name ASC
+                LIMIT 100
+            ");
+        } else {
+            $stmt = $db->query("
+                SELECT 
+                    p.ID as product_id,
+                    p.post_title as product_name,
+                    pm1.meta_value as sku,
+                    pm2.meta_value as regular_price
+                FROM {$prefix}posts p
+                LEFT JOIN {$prefix}postmeta pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_sku'
+                LEFT JOIN {$prefix}postmeta pm2 ON p.ID = pm2.post_id AND pm2.meta_key = '_regular_price'
+                INNER JOIN {$prefix}postmeta pm3 ON p.ID = pm3.post_id AND pm3.meta_key = '_stock_status'
+                WHERE p.post_type = 'product'
+                AND p.post_status = 'publish'
+                AND pm3.meta_value = 'outofstock'
+                ORDER BY p.post_title ASC
+                LIMIT 100
+            ");
+        }
         $outOfStockProducts = $stmt->fetchAll();
         
         $this->view('admin/inventory-alerts', [
