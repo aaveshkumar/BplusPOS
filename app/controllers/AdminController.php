@@ -294,20 +294,22 @@ class AdminController extends BaseController {
         $settings = [];
         foreach ($rows as $row) {
             $value = $row['setting_value'];
+            $type = $row['setting_type'] ?? 'string';
+            $description = $row['description'] ?? '';
             
             // Convert based on type
-            if ($row['setting_type'] === 'number') {
+            if ($type === 'number') {
                 $value = (float) $value;
-            } elseif ($row['setting_type'] === 'boolean') {
+            } elseif ($type === 'boolean') {
                 $value = ($value === 'true' || $value === '1');
-            } elseif ($row['setting_type'] === 'json') {
+            } elseif ($type === 'json') {
                 $value = json_decode($value, true);
             }
             
             $settings[$row['setting_key']] = [
                 'value' => $value,
-                'type' => $row['setting_type'],
-                'description' => $row['description']
+                'type' => $type,
+                'description' => $description
             ];
         }
         
@@ -698,32 +700,19 @@ class AdminController extends BaseController {
                     $productId = $item['product_id'];
                     $quantity = $item['quantity'];
                     
-                    // Get current stock
-                    $stmt = $db->query("
-                        SELECT meta_value FROM {$prefix}postmeta 
-                        WHERE post_id = ? AND meta_key = '_stock'
-                    ", [$productId]);
-                    $stockRow = $stmt->fetch();
-                    $currentStock = $stockRow ? (int)$stockRow['meta_value'] : 0;
-                    $newStock = $currentStock + $quantity;
-                    
-                    // Update stock in postmeta
-                    $stmt = $db->query("
-                        SELECT meta_id FROM {$prefix}postmeta 
-                        WHERE post_id = ? AND meta_key = '_stock'
-                    ", [$productId]);
-                    $metaRow = $stmt->fetch();
-                    
-                    if ($metaRow) {
-                        $db->query("
-                            UPDATE {$prefix}postmeta SET meta_value = ? 
-                            WHERE post_id = ? AND meta_key = '_stock'
-                        ", [$newStock, $productId]);
+                    if ($isStandalone) {
+                        $db->query("UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?", [$quantity, $productId]);
                     } else {
-                        $db->query("
-                            INSERT INTO {$prefix}postmeta (post_id, meta_key, meta_value) 
-                            VALUES (?, '_stock', ?)
-                        ", [$productId, $newStock]);
+                        $stmt = $db->query("SELECT meta_value FROM {$prefix}postmeta WHERE post_id = ? AND meta_key = '_stock'", [$productId]);
+                        $stockRow = $stmt->fetch();
+                        $newStock = ($stockRow ? (int)$stockRow['meta_value'] : 0) + $quantity;
+                        
+                        $stmt = $db->query("SELECT meta_id FROM {$prefix}postmeta WHERE post_id = ? AND meta_key = '_stock'", [$productId]);
+                        if ($stmt->fetch()) {
+                            $db->query("UPDATE {$prefix}postmeta SET meta_value = ? WHERE post_id = ? AND meta_key = '_stock'", [$newStock, $productId]);
+                        } else {
+                            $db->query("INSERT INTO {$prefix}postmeta (post_id, meta_key, meta_value) VALUES (?, '_stock', ?)", [$productId, $newStock]);
+                        }
                     }
                 }
             }
@@ -734,30 +723,19 @@ class AdminController extends BaseController {
                     $productId = $item['product_id'];
                     $quantity = $item['quantity'];
                     
-                    $stmt = $db->query("
-                        SELECT meta_value FROM {$prefix}postmeta 
-                        WHERE post_id = ? AND meta_key = '_stock'
-                    ", [$productId]);
-                    $stockRow = $stmt->fetch();
-                    $currentStock = $stockRow ? (int)$stockRow['meta_value'] : 0;
-                    $newStock = $currentStock + $quantity;
-                    
-                    $stmt = $db->query("
-                        SELECT meta_id FROM {$prefix}postmeta 
-                        WHERE post_id = ? AND meta_key = '_stock'
-                    ", [$productId]);
-                    $metaRow = $stmt->fetch();
-                    
-                    if ($metaRow) {
-                        $db->query("
-                            UPDATE {$prefix}postmeta SET meta_value = ? 
-                            WHERE post_id = ? AND meta_key = '_stock'
-                        ", [$newStock, $productId]);
+                    if ($isStandalone) {
+                        $db->query("UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?", [$quantity, $productId]);
                     } else {
-                        $db->query("
-                            INSERT INTO {$prefix}postmeta (post_id, meta_key, meta_value) 
-                            VALUES (?, '_stock', ?)
-                        ", [$productId, $newStock]);
+                        $stmt = $db->query("SELECT meta_value FROM {$prefix}postmeta WHERE post_id = ? AND meta_key = '_stock'", [$productId]);
+                        $stockRow = $stmt->fetch();
+                        $newStock = ($stockRow ? (int)$stockRow['meta_value'] : 0) + $quantity;
+                        
+                        $stmt = $db->query("SELECT meta_id FROM {$prefix}postmeta WHERE post_id = ? AND meta_key = '_stock'", [$productId]);
+                        if ($stmt->fetch()) {
+                            $db->query("UPDATE {$prefix}postmeta SET meta_value = ? WHERE post_id = ? AND meta_key = '_stock'", [$newStock, $productId]);
+                        } else {
+                            $db->query("INSERT INTO {$prefix}postmeta (post_id, meta_key, meta_value) VALUES (?, '_stock', ?)", [$productId, $newStock]);
+                        }
                     }
                 }
                 
@@ -765,30 +743,19 @@ class AdminController extends BaseController {
                 if (!empty($data['replacement_product_id'])) {
                     $replacementId = (int)$data['replacement_product_id'];
                     
-                    $stmt = $db->query("
-                        SELECT meta_value FROM {$prefix}postmeta 
-                        WHERE post_id = ? AND meta_key = '_stock'
-                    ", [$replacementId]);
-                    $stockRow = $stmt->fetch();
-                    $currentStock = $stockRow ? (int)$stockRow['meta_value'] : 0;
-                    $newStock = $currentStock - 1; // Assuming 1 replacement item
-                    
-                    $stmt = $db->query("
-                        SELECT meta_id FROM {$prefix}postmeta 
-                        WHERE post_id = ? AND meta_key = '_stock'
-                    ", [$replacementId]);
-                    $metaRow = $stmt->fetch();
-                    
-                    if ($metaRow) {
-                        $db->query("
-                            UPDATE {$prefix}postmeta SET meta_value = ? 
-                            WHERE post_id = ? AND meta_key = '_stock'
-                        ", [$newStock, $replacementId]);
+                    if ($isStandalone) {
+                        $db->query("UPDATE products SET stock_quantity = stock_quantity - 1 WHERE id = ?", [$replacementId]);
                     } else {
-                        $db->query("
-                            INSERT INTO {$prefix}postmeta (post_id, meta_key, meta_value) 
-                            VALUES (?, '_stock', ?)
-                        ", [$replacementId, $newStock]);
+                        $stmt = $db->query("SELECT meta_value FROM {$prefix}postmeta WHERE post_id = ? AND meta_key = '_stock'", [$replacementId]);
+                        $stockRow = $stmt->fetch();
+                        $newStock = ($stockRow ? (int)$stockRow['meta_value'] : 0) - 1;
+                        
+                        $stmt = $db->query("SELECT meta_id FROM {$prefix}postmeta WHERE post_id = ? AND meta_key = '_stock'", [$replacementId]);
+                        if ($stmt->fetch()) {
+                            $db->query("UPDATE {$prefix}postmeta SET meta_value = ? WHERE post_id = ? AND meta_key = '_stock'", [$newStock, $replacementId]);
+                        } else {
+                            $db->query("INSERT INTO {$prefix}postmeta (post_id, meta_key, meta_value) VALUES (?, '_stock', ?)", [$replacementId, $newStock]);
+                        }
                     }
                 }
             }
@@ -819,10 +786,12 @@ class AdminController extends BaseController {
             // If refund method is store_credit, create store credit entry
             if ($data['refund_method'] === 'store_credit' && $order && $order['customer_id'] > 0) {
                 $creditNumber = 'SC-' . date('Ymd') . '-' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
+                $storeCreditsTable = getTableName('store_credits');
+                $storeCreditTransTable = getTableName('store_credit_transactions');
                 
                 // Create store credit
                 $db->query("
-                    INSERT INTO pos_store_credit 
+                    INSERT INTO {$storeCreditsTable} 
                     (customer_id, credit_number, amount, balance, source_type, source_id, issued_by, status, created_at)
                     VALUES (?, ?, ?, ?, 'refund', ?, ?, 'active', NOW())
                 ", [
@@ -838,7 +807,7 @@ class AdminController extends BaseController {
                 
                 // Log store credit transaction
                 $db->query("
-                    INSERT INTO pos_store_credit_transactions 
+                    INSERT INTO {$storeCreditTransTable} 
                     (store_credit_id, order_id, transaction_type, amount, balance_after, description, processed_by, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
                 ", [
