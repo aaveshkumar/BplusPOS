@@ -286,8 +286,9 @@ class AdminController extends BaseController {
      */
     private function getSettings() {
         $db = Database::getInstance();
+        $settingsTable = getTableName('settings');
         
-        $stmt = $db->query("SELECT * FROM pos_settings");
+        $stmt = $db->query("SELECT * FROM {$settingsTable}");
         $rows = $stmt->fetchAll();
         
         $settings = [];
@@ -340,10 +341,11 @@ class AdminController extends BaseController {
                 'loyalty_points_per_rupee' => getPost('loyalty_points_per_rupee')
             ];
             
+            $settingsTable = getTableName('settings');
             foreach ($settingsToUpdate as $key => $value) {
                 if ($value !== null) {
                     $stmt = $db->query(
-                        "UPDATE pos_settings SET setting_value = ? WHERE setting_key = ?",
+                        "UPDATE {$settingsTable} SET setting_value = ? WHERE setting_key = ?",
                         [$value, $key]
                     );
                 }

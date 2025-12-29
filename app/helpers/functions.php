@@ -197,3 +197,29 @@ function calculateTax($price, $taxPercent) {
 function generateBarcode() {
     return str_pad(mt_rand(1, 999999999999), 12, '0', STR_PAD_LEFT);
 }
+
+/**
+ * Get query string parameter (alias for getGet)
+ */
+function getQuery($key = null, $default = null) {
+    return getGet($key, $default);
+}
+
+/**
+ * Get table name based on database type
+ */
+function getTableName($table) {
+    $isStandalone = getenv('DATABASE_TYPE') === 'standalone';
+    
+    $tableMap = [
+        'settings' => $isStandalone ? 'settings' : 'pos_settings',
+        'orders' => $isStandalone ? 'orders' : 'pos_orders',
+        'order_items' => $isStandalone ? 'order_items' : 'pos_order_items',
+        'sessions' => $isStandalone ? 'sessions' : 'pos_sessions',
+        'returns' => $isStandalone ? 'returns' : 'pos_returns',
+        'store_credits' => $isStandalone ? 'store_credits' : 'pos_store_credits',
+        'store_credit_transactions' => $isStandalone ? 'store_credit_transactions' : 'pos_store_credit_transactions',
+    ];
+    
+    return $tableMap[$table] ?? $table;
+}
