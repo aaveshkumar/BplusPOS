@@ -1554,28 +1554,54 @@ class AdminController extends BaseController {
         }
         
         // Get top loyalty customers
-        $stmt = $db->query("
-            SELECT 
-                lp.*,
-                u.display_name as customer_name,
-                u.user_email as customer_email
-            FROM pos_loyalty_points lp
-            LEFT JOIN {$prefix}users u ON lp.customer_id = u.ID
-            ORDER BY lp.points DESC
-            LIMIT 50
-        ");
+        $isStandalone = getenv('DATABASE_TYPE') === 'standalone';
+        if ($isStandalone) {
+            $stmt = $db->query("
+                SELECT 
+                    lp.*,
+                    c.display_name as customer_name,
+                    c.email as customer_email
+                FROM pos_loyalty_points lp
+                LEFT JOIN customers c ON lp.customer_id = c.id
+                ORDER BY lp.points DESC
+                LIMIT 50
+            ");
+        } else {
+            $stmt = $db->query("
+                SELECT 
+                    lp.*,
+                    u.display_name as customer_name,
+                    u.user_email as customer_email
+                FROM pos_loyalty_points lp
+                LEFT JOIN {$prefix}users u ON lp.customer_id = u.ID
+                ORDER BY lp.points DESC
+                LIMIT 50
+            ");
+        }
         $topCustomers = $stmt->fetchAll();
         
         // Get recent transactions
-        $stmt = $db->query("
-            SELECT 
-                lt.*,
-                u.display_name as customer_name
-            FROM pos_loyalty_transactions lt
-            LEFT JOIN {$prefix}users u ON lt.customer_id = u.ID
-            ORDER BY lt.created_at DESC
-            LIMIT 100
-        ");
+        if ($isStandalone) {
+            $stmt = $db->query("
+                SELECT 
+                    lt.*,
+                    c.display_name as customer_name
+                FROM pos_loyalty_transactions lt
+                LEFT JOIN customers c ON lt.customer_id = c.id
+                ORDER BY lt.created_at DESC
+                LIMIT 100
+            ");
+        } else {
+            $stmt = $db->query("
+                SELECT 
+                    lt.*,
+                    u.display_name as customer_name
+                FROM pos_loyalty_transactions lt
+                LEFT JOIN {$prefix}users u ON lt.customer_id = u.ID
+                ORDER BY lt.created_at DESC
+                LIMIT 100
+            ");
+        }
         $recentTransactions = $stmt->fetchAll();
         
         $this->view('admin/loyalty', [
@@ -1640,8 +1666,9 @@ class AdminController extends BaseController {
         $this->requirePermission('manage_system');
         
         $db = Database::getInstance();
+        $storesTable = getTableName('stores');
         
-        $stmt = $db->query("SELECT * FROM pos_stores ORDER BY id ASC");
+        $stmt = $db->query("SELECT * FROM {$storesTable} ORDER BY id ASC");
         $stores = $stmt->fetchAll();
         
         $this->view('admin/stores', [
