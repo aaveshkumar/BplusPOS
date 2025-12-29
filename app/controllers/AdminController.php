@@ -413,36 +413,62 @@ class AdminController extends BaseController {
         $this->requirePermission('view_orders');
         
         $db = Database::getInstance();
-        $prefix = $db->getPrefix();
+        $isStandalone = getenv('DATABASE_TYPE') === 'standalone';
+        $ordersTable = getTableName('orders');
+        $orderItemsTable = getTableName('order_items');
         
-        // Get recent orders
-        $stmt = $db->query("
-            SELECT 
-                o.*,
-                u.display_name as cashier_name,
-                c.display_name as customer_name
-            FROM pos_orders o
-            LEFT JOIN {$prefix}users u ON o.user_id = u.ID
-            LEFT JOIN {$prefix}users c ON o.customer_id = c.ID
-            ORDER BY o.created_at DESC
-            LIMIT 100
-        ");
-        $orders = $stmt->fetchAll();
-        
-        // Fetch order items for each order
-        foreach ($orders as &$order) {
+        if ($isStandalone) {
             $stmt = $db->query("
                 SELECT 
-                    oi.*,
-                    p.post_title as product_name,
-                    pm.meta_value as regular_price
-                FROM pos_order_items oi
-                LEFT JOIN {$prefix}posts p ON oi.product_id = p.ID
-                LEFT JOIN {$prefix}postmeta pm ON oi.product_id = pm.post_id AND pm.meta_key = '_regular_price'
-                WHERE oi.order_id = ?
-                ORDER BY oi.id ASC
-            ", [$order['id']]);
-            $order['items'] = $stmt->fetchAll();
+                    o.*,
+                    u.display_name as cashier_name,
+                    c.first_name as customer_name
+                FROM {$ordersTable} o
+                LEFT JOIN users u ON o.user_id = u.id
+                LEFT JOIN customers c ON o.customer_id = c.id
+                ORDER BY o.created_at DESC
+                LIMIT 100
+            ");
+            $orders = $stmt->fetchAll();
+            
+            foreach ($orders as &$order) {
+                $stmt = $db->query("
+                    SELECT oi.*, oi.product_name, oi.unit_price as regular_price
+                    FROM {$orderItemsTable} oi
+                    WHERE oi.order_id = ?
+                    ORDER BY oi.id ASC
+                ", [$order['id']]);
+                $order['items'] = $stmt->fetchAll();
+            }
+        } else {
+            $prefix = $db->getPrefix();
+            $stmt = $db->query("
+                SELECT 
+                    o.*,
+                    u.display_name as cashier_name,
+                    c.display_name as customer_name
+                FROM {$ordersTable} o
+                LEFT JOIN {$prefix}users u ON o.user_id = u.ID
+                LEFT JOIN {$prefix}users c ON o.customer_id = c.ID
+                ORDER BY o.created_at DESC
+                LIMIT 100
+            ");
+            $orders = $stmt->fetchAll();
+            
+            foreach ($orders as &$order) {
+                $stmt = $db->query("
+                    SELECT 
+                        oi.*,
+                        p.post_title as product_name,
+                        pm.meta_value as regular_price
+                    FROM {$orderItemsTable} oi
+                    LEFT JOIN {$prefix}posts p ON oi.product_id = p.ID
+                    LEFT JOIN {$prefix}postmeta pm ON oi.product_id = pm.post_id AND pm.meta_key = '_regular_price'
+                    WHERE oi.order_id = ?
+                    ORDER BY oi.id ASC
+                ", [$order['id']]);
+                $order['items'] = $stmt->fetchAll();
+            }
         }
         
         // Get store settings for receipt
@@ -456,14 +482,15 @@ class AdminController extends BaseController {
     }
     
     /**
-     * Get receipt settings from pos_settings table
+     * Get receipt settings from settings table
      */
     private function getReceiptSettings() {
         $db = Database::getInstance();
+        $settingsTable = getTableName('settings');
         
         $stmt = $db->query("
             SELECT setting_key, setting_value 
-            FROM pos_settings 
+            FROM {$settingsTable} 
             WHERE setting_key IN ('store_name', 'store_address', 'store_phone', 'store_email', 'store_gstin', 'receipt_footer', 'receipt_terms')
         ");
         $settings = [];
@@ -507,16 +534,30 @@ class AdminController extends BaseController {
         
         try {
             $db = Database::getInstance();
-            $prefix = $db->getPrefix();
+            $isStandalone = getenv('DATABASE_TYPE') === 'standalone';
+            $ordersTable = getTableName('orders');
+            $orderItemsTable = getTableName('order_items');
+            $settingsTable = getTableName('settings');
             
             // Get order details
-            $stmt = $db->query("
-                SELECT o.*, u.display_name as cashier_name, c.display_name as customer_name
-                FROM pos_orders o
-                LEFT JOIN {$prefix}users u ON o.user_id = u.ID
-                LEFT JOIN {$prefix}users c ON o.customer_id = c.ID
-                WHERE o.id = ?
-            ", [$orderId]);
+            if ($isStandalone) {
+                $stmt = $db->query("
+                    SELECT o.*, u.display_name as cashier_name, c.first_name as customer_name
+                    FROM {$ordersTable} o
+                    LEFT JOIN users u ON o.user_id = u.id
+                    LEFT JOIN customers c ON o.customer_id = c.id
+                    WHERE o.id = ?
+                ", [$orderId]);
+            } else {
+                $prefix = $db->getPrefix();
+                $stmt = $db->query("
+                    SELECT o.*, u.display_name as cashier_name, c.display_name as customer_name
+                    FROM {$ordersTable} o
+                    LEFT JOIN {$prefix}users u ON o.user_id = u.ID
+                    LEFT JOIN {$prefix}users c ON o.customer_id = c.ID
+                    WHERE o.id = ?
+                ", [$orderId]);
+            }
             $order = $stmt->fetch();
             
             if (!$order) {
@@ -525,7 +566,7 @@ class AdminController extends BaseController {
             
             // Get order items
             $stmt = $db->query("
-                SELECT oi.* FROM pos_order_items oi
+                SELECT oi.* FROM {$orderItemsTable} oi
                 WHERE oi.order_id = ?
             ", [$orderId]);
             $items = $stmt->fetchAll();
@@ -533,7 +574,7 @@ class AdminController extends BaseController {
             
             // Get store settings
             $stmt = $db->query("
-                SELECT setting_key, setting_value FROM pos_settings 
+                SELECT setting_key, setting_value FROM {$settingsTable} 
                 WHERE setting_key IN ('store_name', 'store_address', 'store_phone', 'store_email', 'store_gstin')
             ");
             $storeSettings = [];
@@ -638,14 +679,16 @@ class AdminController extends BaseController {
         
         $data = json_decode(file_get_contents('php://input'), true);
         $db = Database::getInstance();
+        $isStandalone = getenv('DATABASE_TYPE') === 'standalone';
         $prefix = $db->getPrefix();
+        $orderItemsTable = getTableName('order_items');
         
         try {
             $returnNumber = 'RET-' . date('YmdHis') . '-' . rand(1000, 9999);
             
             // Get order items to update stock
             $stmt = $db->query("
-                SELECT product_id, quantity FROM pos_order_items WHERE order_id = ?
+                SELECT product_id, quantity FROM {$orderItemsTable} WHERE order_id = ?
             ", [$data['order_id']]);
             $orderItems = $stmt->fetchAll();
             
@@ -751,8 +794,10 @@ class AdminController extends BaseController {
             }
             
             // Insert return record
+            $returnsTable = getTableName('returns');
+            $ordersTable = getTableName('orders');
             $stmt = $db->query("
-                INSERT INTO pos_returns (
+                INSERT INTO {$returnsTable} (
                     order_id, return_type, return_reason, refund_amount, 
                     refund_method, return_number, status, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, 'completed', NOW())
@@ -768,7 +813,7 @@ class AdminController extends BaseController {
             $returnId = $db->lastInsertId();
             
             // Get order details to find customer
-            $stmt = $db->query("SELECT customer_id FROM pos_orders WHERE id = ?", [$data['order_id']]);
+            $stmt = $db->query("SELECT customer_id FROM {$ordersTable} WHERE id = ?", [$data['order_id']]);
             $order = $stmt->fetch();
             
             // If refund method is store_credit, create store credit entry
@@ -832,7 +877,8 @@ class AdminController extends BaseController {
         
         try {
             $db = Database::getInstance();
-            $db->query("UPDATE pos_returns SET status = 'approved' WHERE id = ?", [$returnId]);
+            $returnsTable = getTableName('returns');
+            $db->query("UPDATE {$returnsTable} SET status = 'approved' WHERE id = ?", [$returnId]);
             $this->json(['success' => true, 'message' => 'Return approved']);
         } catch (Exception $e) {
             $this->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
@@ -859,7 +905,8 @@ class AdminController extends BaseController {
         
         try {
             $db = Database::getInstance();
-            $db->query("UPDATE pos_returns SET status = 'rejected', notes = ? WHERE id = ?", [$reason, $returnId]);
+            $returnsTable = getTableName('returns');
+            $db->query("UPDATE {$returnsTable} SET status = 'rejected', notes = ? WHERE id = ?", [$reason, $returnId]);
             $this->json(['success' => true, 'message' => 'Return rejected']);
         } catch (Exception $e) {
             $this->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
@@ -885,9 +932,13 @@ class AdminController extends BaseController {
         
         try {
             $db = Database::getInstance();
+            $returnsTable = getTableName('returns');
+            $ordersTable = getTableName('orders');
+            $storeCreditsTable = getTableName('store_credits');
+            $storeCreditTransTable = getTableName('store_credit_transactions');
             
             // Get return details
-            $stmt = $db->query("SELECT * FROM pos_returns WHERE id = ?", [$returnId]);
+            $stmt = $db->query("SELECT * FROM {$returnsTable} WHERE id = ?", [$returnId]);
             $return = $stmt->fetch();
             
             if (!$return) {
@@ -896,7 +947,7 @@ class AdminController extends BaseController {
             }
             
             // Get order details to find customer
-            $stmt = $db->query("SELECT customer_id FROM pos_orders WHERE id = ?", [$return['order_id']]);
+            $stmt = $db->query("SELECT customer_id FROM {$ordersTable} WHERE id = ?", [$return['order_id']]);
             $order = $stmt->fetch();
             
             // If refund method is store_credit, create store credit entry
@@ -905,7 +956,7 @@ class AdminController extends BaseController {
                 
                 // Create store credit
                 $db->query("
-                    INSERT INTO pos_store_credit 
+                    INSERT INTO {$storeCreditsTable} 
                     (customer_id, credit_number, amount, balance, source_type, source_id, issued_by, status, created_at)
                     VALUES (?, ?, ?, ?, 'refund', ?, ?, 'active', NOW())
                 ", [
@@ -921,7 +972,7 @@ class AdminController extends BaseController {
                 
                 // Log store credit transaction
                 $db->query("
-                    INSERT INTO pos_store_credit_transactions 
+                    INSERT INTO {$storeCreditTransTable} 
                     (store_credit_id, order_id, transaction_type, amount, balance_after, description, processed_by, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
                 ", [
@@ -935,7 +986,7 @@ class AdminController extends BaseController {
                 ]);
             }
             
-            $db->query("UPDATE pos_returns SET status = 'completed' WHERE id = ?", [$returnId]);
+            $db->query("UPDATE {$returnsTable} SET status = 'completed' WHERE id = ?", [$returnId]);
             $this->json(['success' => true, 'message' => 'Refund processed successfully']);
         } catch (Exception $e) {
             $this->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
@@ -955,16 +1006,31 @@ class AdminController extends BaseController {
         
         try {
             $db = Database::getInstance();
-            $prefix = $db->getPrefix();
+            $isStandalone = getenv('DATABASE_TYPE') === 'standalone';
+            $returnsTable = getTableName('returns');
+            $ordersTable = getTableName('orders');
+            $settingsTable = getTableName('settings');
             
-            $stmt = $db->query("
-                SELECT r.*, o.order_number as original_order_number, o.total as order_total,
-                       c.display_name as customer_name
-                FROM pos_returns r
-                LEFT JOIN pos_orders o ON r.order_id = o.id
-                LEFT JOIN {$prefix}users c ON o.customer_id = c.ID
-                WHERE r.id = ?
-            ", [$returnId]);
+            if ($isStandalone) {
+                $stmt = $db->query("
+                    SELECT r.*, o.order_number as original_order_number, o.total as order_total,
+                           c.first_name as customer_name
+                    FROM {$returnsTable} r
+                    LEFT JOIN {$ordersTable} o ON r.order_id = o.id
+                    LEFT JOIN customers c ON o.customer_id = c.id
+                    WHERE r.id = ?
+                ", [$returnId]);
+            } else {
+                $prefix = $db->getPrefix();
+                $stmt = $db->query("
+                    SELECT r.*, o.order_number as original_order_number, o.total as order_total,
+                           c.display_name as customer_name
+                    FROM {$returnsTable} r
+                    LEFT JOIN {$ordersTable} o ON r.order_id = o.id
+                    LEFT JOIN {$prefix}users c ON o.customer_id = c.ID
+                    WHERE r.id = ?
+                ", [$returnId]);
+            }
             $return = $stmt->fetch();
             
             if (!$return) {
@@ -973,7 +1039,7 @@ class AdminController extends BaseController {
             
             // Get store settings
             $stmt = $db->query("
-                SELECT setting_key, setting_value FROM pos_settings 
+                SELECT setting_key, setting_value FROM {$settingsTable} 
                 WHERE setting_key IN ('store_name', 'store_address', 'store_phone', 'store_email')
             ");
             $settings = [];
@@ -1002,21 +1068,27 @@ class AdminController extends BaseController {
         
         try {
             $db = Database::getInstance();
-            $prefix = $db->getPrefix();
+            $isStandalone = getenv('DATABASE_TYPE') === 'standalone';
+            $returnsTable = getTableName('returns');
+            $ordersTable = getTableName('orders');
             
-            $stmt = $db->query("
-                SELECT r.*, o.order_number as original_order_number, c.display_name as customer_name
-                FROM pos_returns r
-                LEFT JOIN pos_orders o ON r.order_id = o.id
-                LEFT JOIN {$prefix}users c ON o.customer_id = c.ID
-                WHERE r.id = ?
-            ", [$returnId]);
-            $return = $stmt->fetch();
-            
-            if ($return) {
-                $this->json(['success' => true, 'return' => $return]);
+            if ($isStandalone) {
+                $stmt = $db->query("
+                    SELECT r.*, o.order_number as original_order_number, c.first_name as customer_name
+                    FROM {$returnsTable} r
+                    LEFT JOIN {$ordersTable} o ON r.order_id = o.id
+                    LEFT JOIN customers c ON o.customer_id = c.id
+                    WHERE r.id = ?
+                ", [$returnId]);
             } else {
-                $this->json(['success' => false, 'message' => 'Return not found'], 404);
+                $prefix = $db->getPrefix();
+                $stmt = $db->query("
+                    SELECT r.*, o.order_number as original_order_number, c.display_name as customer_name
+                    FROM {$returnsTable} r
+                    LEFT JOIN {$ordersTable} o ON r.order_id = o.id
+                    LEFT JOIN {$prefix}users c ON o.customer_id = c.ID
+                    WHERE r.id = ?
+                ", [$returnId]);
             }
             $return = $stmt->fetch();
             
@@ -1038,20 +1110,37 @@ class AdminController extends BaseController {
         $this->requirePermission('view_orders');
         
         $db = Database::getInstance();
-        $prefix = $db->getPrefix();
+        $isStandalone = getenv('DATABASE_TYPE') === 'standalone';
+        $returnsTable = getTableName('returns');
+        $ordersTable = getTableName('orders');
         
         // Get all returns
-        $stmt = $db->query("
-            SELECT 
-                r.*,
-                o.order_number as original_order_number,
-                c.display_name as customer_name
-            FROM pos_returns r
-            LEFT JOIN pos_orders o ON r.order_id = o.id
-            LEFT JOIN {$prefix}users c ON r.customer_id = c.ID
-            ORDER BY r.created_at DESC
-            LIMIT 100
-        ");
+        if ($isStandalone) {
+            $stmt = $db->query("
+                SELECT 
+                    r.*,
+                    o.order_number as original_order_number,
+                    c.first_name as customer_name
+                FROM {$returnsTable} r
+                LEFT JOIN {$ordersTable} o ON r.order_id = o.id
+                LEFT JOIN customers c ON r.customer_id = c.id
+                ORDER BY r.created_at DESC
+                LIMIT 100
+            ");
+        } else {
+            $prefix = $db->getPrefix();
+            $stmt = $db->query("
+                SELECT 
+                    r.*,
+                    o.order_number as original_order_number,
+                    c.display_name as customer_name
+                FROM {$returnsTable} r
+                LEFT JOIN {$ordersTable} o ON r.order_id = o.id
+                LEFT JOIN {$prefix}users c ON r.customer_id = c.ID
+                ORDER BY r.created_at DESC
+                LIMIT 100
+            ");
+        }
         $returns = $stmt->fetchAll();
         
         // Get statistics
@@ -1067,14 +1156,14 @@ class AdminController extends BaseController {
         
         try {
             // Total returns
-            $stmt = $db->query("SELECT COUNT(*) as count FROM pos_returns");
+            $stmt = $db->query("SELECT COUNT(*) as count FROM {$returnsTable}");
             $result = $stmt->fetch();
             $stats['total_returns'] = $result['count'] ?? 0;
             
             // By status
             $stmt = $db->query("
                 SELECT status, COUNT(*) as count, SUM(refund_amount) as total_amount
-                FROM pos_returns
+                FROM {$returnsTable}
                 GROUP BY status
             ");
             while ($row = $stmt->fetch()) {
@@ -1087,7 +1176,7 @@ class AdminController extends BaseController {
             // 30-day refunds
             $stmt = $db->query("
                 SELECT COALESCE(SUM(refund_amount), 0) as amount
-                FROM pos_returns
+                FROM {$returnsTable}
                 WHERE status = 'completed'
                 AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             ");
@@ -1113,18 +1202,32 @@ class AdminController extends BaseController {
         $this->requirePermission('manage_system');
         
         $db = Database::getInstance();
-        $prefix = $db->getPrefix();
+        $isStandalone = getenv('DATABASE_TYPE') === 'standalone';
+        $sessionsTable = $isStandalone ? 'pos_sessions' : 'pos_sessions';
         
         // Get all sessions
-        $stmt = $db->query("
-            SELECT 
-                s.*,
-                u.display_name as cashier_name
-            FROM pos_sessions s
-            LEFT JOIN {$prefix}users u ON s.user_id = u.ID
-            ORDER BY s.session_start DESC
-            LIMIT 50
-        ");
+        if ($isStandalone) {
+            $stmt = $db->query("
+                SELECT 
+                    s.*,
+                    u.display_name as cashier_name
+                FROM {$sessionsTable} s
+                LEFT JOIN users u ON s.user_id = u.id
+                ORDER BY s.session_start DESC
+                LIMIT 50
+            ");
+        } else {
+            $prefix = $db->getPrefix();
+            $stmt = $db->query("
+                SELECT 
+                    s.*,
+                    u.display_name as cashier_name
+                FROM {$sessionsTable} s
+                LEFT JOIN {$prefix}users u ON s.user_id = u.ID
+                ORDER BY s.session_start DESC
+                LIMIT 50
+            ");
+        }
         $sessions = $stmt->fetchAll();
         
         $this->view('admin/sessions', [
