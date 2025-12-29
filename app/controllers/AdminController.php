@@ -1179,10 +1179,12 @@ class AdminController extends BaseController {
             $stmt = $db->query("
                 SELECT 
                     s.*,
+                    s.opened_at as session_start,
+                    s.closed_at as session_end,
                     u.display_name as cashier_name
                 FROM {$sessionsTable} s
                 LEFT JOIN users u ON s.user_id = u.id
-                ORDER BY s.session_start DESC
+                ORDER BY s.opened_at DESC
                 LIMIT 50
             ");
         } else {
