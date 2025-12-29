@@ -1215,32 +1215,52 @@ class AdminController extends BaseController {
         $this->requirePermission('manage_products');
         
         $db = Database::getInstance();
+        $isStandalone = getenv('DATABASE_TYPE') === 'standalone';
         $prefix = $db->getPrefix();
         
         // Get products with stock information
-        $stmt = $db->query("
-            SELECT 
-                p.ID as product_id,
-                p.post_title as product_name,
-                p.post_status,
-                pm1.meta_value as sku,
-                pm2.meta_value as stock_quantity,
-                pm3.meta_value as stock_status,
-                pm4.meta_value as regular_price,
-                pm5.meta_value as manage_stock,
-                pm6.meta_value as low_stock_amount
-            FROM {$prefix}posts p
-            LEFT JOIN {$prefix}postmeta pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_sku'
-            LEFT JOIN {$prefix}postmeta pm2 ON p.ID = pm2.post_id AND pm2.meta_key = '_stock'
-            LEFT JOIN {$prefix}postmeta pm3 ON p.ID = pm3.post_id AND pm3.meta_key = '_stock_status'
-            LEFT JOIN {$prefix}postmeta pm4 ON p.ID = pm4.post_id AND pm4.meta_key = '_regular_price'
-            LEFT JOIN {$prefix}postmeta pm5 ON p.ID = pm5.post_id AND pm5.meta_key = '_manage_stock'
-            LEFT JOIN {$prefix}postmeta pm6 ON p.ID = pm6.post_id AND pm6.meta_key = '_low_stock_amount'
-            WHERE p.post_type = 'product'
-            AND p.post_status IN ('publish', 'draft')
-            ORDER BY p.post_title ASC
-            LIMIT 200
-        ");
+        if ($isStandalone) {
+            $stmt = $db->query("
+                SELECT 
+                    p.id as product_id,
+                    p.name as product_name,
+                    p.status as post_status,
+                    p.sku,
+                    p.stock_quantity,
+                    p.stock_status,
+                    p.regular_price,
+                    p.manage_stock,
+                    p.low_stock_amount
+                FROM products p
+                WHERE p.status IN ('publish', 'draft')
+                ORDER BY p.name ASC
+                LIMIT 200
+            ");
+        } else {
+            $stmt = $db->query("
+                SELECT 
+                    p.ID as product_id,
+                    p.post_title as product_name,
+                    p.post_status,
+                    pm1.meta_value as sku,
+                    pm2.meta_value as stock_quantity,
+                    pm3.meta_value as stock_status,
+                    pm4.meta_value as regular_price,
+                    pm5.meta_value as manage_stock,
+                    pm6.meta_value as low_stock_amount
+                FROM {$prefix}posts p
+                LEFT JOIN {$prefix}postmeta pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_sku'
+                LEFT JOIN {$prefix}postmeta pm2 ON p.ID = pm2.post_id AND pm2.meta_key = '_stock'
+                LEFT JOIN {$prefix}postmeta pm3 ON p.ID = pm3.post_id AND pm3.meta_key = '_stock_status'
+                LEFT JOIN {$prefix}postmeta pm4 ON p.ID = pm4.post_id AND pm4.meta_key = '_regular_price'
+                LEFT JOIN {$prefix}postmeta pm5 ON p.ID = pm5.post_id AND pm5.meta_key = '_manage_stock'
+                LEFT JOIN {$prefix}postmeta pm6 ON p.ID = pm6.post_id AND pm6.meta_key = '_low_stock_amount'
+                WHERE p.post_type = 'product'
+                AND p.post_status IN ('publish', 'draft')
+                ORDER BY p.post_title ASC
+                LIMIT 200
+            ");
+        }
         $products = $stmt->fetchAll();
         
         // Get inventory statistics
@@ -1253,49 +1273,71 @@ class AdminController extends BaseController {
         ];
         
         try {
-            // Total products
-            $stmt = $db->query("
-                SELECT COUNT(*) as count 
-                FROM {$prefix}posts 
-                WHERE post_type = 'product' 
-                AND post_status = 'publish'
-            ");
-            $result = $stmt->fetch();
-            $stats['total_products'] = $result['count'] ?? 0;
-            
-            // Stock status counts
-            $stmt = $db->query("
-                SELECT 
-                    pm.meta_value as stock_status,
-                    COUNT(*) as count
-                FROM {$prefix}posts p
-                INNER JOIN {$prefix}postmeta pm ON p.ID = pm.post_id
-                WHERE p.post_type = 'product'
-                AND p.post_status = 'publish'
-                AND pm.meta_key = '_stock_status'
-                GROUP BY pm.meta_value
-            ");
-            while ($row = $stmt->fetch()) {
-                if ($row['stock_status'] === 'instock') {
-                    $stats['in_stock'] = $row['count'];
-                } elseif ($row['stock_status'] === 'outofstock') {
-                    $stats['out_of_stock'] = $row['count'];
+            if ($isStandalone) {
+                // Total products
+                $stmt = $db->query("SELECT COUNT(*) as count FROM products WHERE status = 'publish'");
+                $result = $stmt->fetch();
+                $stats['total_products'] = $result['count'] ?? 0;
+                
+                // Stock status counts
+                $stmt = $db->query("SELECT stock_status, COUNT(*) as count FROM products WHERE status = 'publish' GROUP BY stock_status");
+                while ($row = $stmt->fetch()) {
+                    if ($row['stock_status'] === 'instock') {
+                        $stats['in_stock'] = $row['count'];
+                    } elseif ($row['stock_status'] === 'outofstock') {
+                        $stats['out_of_stock'] = $row['count'];
+                    }
                 }
+                
+                // Low stock count
+                $stmt = $db->query("SELECT COUNT(*) as count FROM products WHERE status = 'publish' AND stock_quantity <= low_stock_amount AND stock_quantity > 0");
+                $result = $stmt->fetch();
+                $stats['low_stock'] = $result['count'] ?? 0;
+            } else {
+                // Total products
+                $stmt = $db->query("
+                    SELECT COUNT(*) as count 
+                    FROM {$prefix}posts 
+                    WHERE post_type = 'product' 
+                    AND post_status = 'publish'
+                ");
+                $result = $stmt->fetch();
+                $stats['total_products'] = $result['count'] ?? 0;
+                
+                // Stock status counts
+                $stmt = $db->query("
+                    SELECT 
+                        pm.meta_value as stock_status,
+                        COUNT(*) as count
+                    FROM {$prefix}posts p
+                    INNER JOIN {$prefix}postmeta pm ON p.ID = pm.post_id
+                    WHERE p.post_type = 'product'
+                    AND p.post_status = 'publish'
+                    AND pm.meta_key = '_stock_status'
+                    GROUP BY pm.meta_value
+                ");
+                while ($row = $stmt->fetch()) {
+                    if ($row['stock_status'] === 'instock') {
+                        $stats['in_stock'] = $row['count'];
+                    } elseif ($row['stock_status'] === 'outofstock') {
+                        $stats['out_of_stock'] = $row['count'];
+                    }
+                }
+                
+                // Low stock count
+                $stmt = $db->query("
+                    SELECT COUNT(DISTINCT p.ID) as count
+                    FROM {$prefix}posts p
+                    INNER JOIN {$prefix}postmeta pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_stock'
+                    INNER JOIN {$prefix}postmeta pm2 ON p.ID = pm2.post_id AND pm2.meta_key = '_low_stock_amount'
+                    WHERE p.post_type = 'product'
+                    AND p.post_status = 'publish'
+                    AND CAST(pm1.meta_value AS DECIMAL) <= CAST(pm2.meta_value AS DECIMAL)
+                    AND CAST(pm1.meta_value AS DECIMAL) > 0
+                ");
+                $result = $stmt->fetch();
+                $stats['low_stock'] = $result['count'] ?? 0;
             }
-            
-            // Low stock count
-            $stmt = $db->query("
-                SELECT COUNT(DISTINCT p.ID) as count
-                FROM {$prefix}posts p
-                INNER JOIN {$prefix}postmeta pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_stock'
-                INNER JOIN {$prefix}postmeta pm2 ON p.ID = pm2.post_id AND pm2.meta_key = '_low_stock_amount'
-                WHERE p.post_type = 'product'
-                AND p.post_status = 'publish'
-                AND CAST(pm1.meta_value AS DECIMAL) <= CAST(pm2.meta_value AS DECIMAL)
-                AND CAST(pm1.meta_value AS DECIMAL) > 0
-            ");
-            $result = $stmt->fetch();
-            $stats['low_stock'] = $result['count'] ?? 0;
             
         } catch (Exception $e) {
             // Silently handle errors
